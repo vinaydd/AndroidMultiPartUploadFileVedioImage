@@ -40,10 +40,12 @@ public class MainActivity extends Activity {
     
     public static final int MEDIA_TYPE_IMAGE = 1;
     public static final int MEDIA_TYPE_VIDEO = 2;
- 
+    public static final int MEDIA_TYPE_FILE = 3;
+    private static final int UPLOAD_FILE_REQUEST_CODE = 10;
+
     private Uri fileUri; // file url to store image/video
     
-    private Button btnCapturePicture, btnRecordVideo;
+    private Button btnCapturePicture, btnRecordVideo,btPdfFile;
  
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,7 +60,8 @@ public class MainActivity extends Activity {
  
         btnCapturePicture = (Button) findViewById(R.id.btnCapturePicture);
         btnRecordVideo = (Button) findViewById(R.id.btnRecordVideo);
- 
+        btPdfFile = (Button) findViewById(R.id.btPdfFile);
+
         /**
          * Capture image button click event
          */
@@ -90,7 +93,19 @@ public class MainActivity extends Activity {
                 }
             }
         });
- 
+        btPdfFile.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                // record video
+                try {
+                   uploadFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
         // Checking camera availability
         if (!isDeviceSupportCamera()) {
             Toast.makeText(getApplicationContext(),
@@ -100,7 +115,18 @@ public class MainActivity extends Activity {
             finish();
         }
     }
- 
+
+    private void uploadFile() throws IOException {
+
+        Intent intent = new Intent();
+        fileUri = getOutputMediaFileUri(MEDIA_TYPE_FILE);
+        intent.setType("application/doc");
+        intent.setAction(Intent.ACTION_GET_CONTENT);
+        startActivityForResult(Intent.createChooser(intent, "Select Pdf"), UPLOAD_FILE_REQUEST_CODE);
+
+
+    }
+
     /**
      * Checking device has camera hardware or not
      * */
@@ -122,27 +148,7 @@ public class MainActivity extends Activity {
          Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
          fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
          intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
-        // start the image capture Intent
          startActivityForResult(intent, CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
-/*
-        Intent intent = new Intent();
-        fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
-        intent.setType("application/pdf");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        startActivityForResult(Intent.createChooser(intent, "Select Pdf"), CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
-      */
-
-      /*  Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (intent.resolveActivity(this.getPackageManager()) != null) {
-            ContentValues values = new ContentValues(1);
-            values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpg");
-            fileUri = this.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            startActivityForResult(intent, CAMERA_CAPTURE_IMAGE_REQUEST_CODE);
-        } else {
-            Toast.makeText(this, "error_no_camera", Toast.LENGTH_LONG).show();
-        }*/
 
 
 
@@ -218,7 +224,9 @@ public class MainActivity extends Activity {
         
         } else if (requestCode == CAMERA_CAPTURE_VIDEO_REQUEST_CODE) {
             if (resultCode == RESULT_OK) {
-                
+
+
+
             	// video successfully recorded
                 // launching upload activity
             	launchUploadActivity(false);
@@ -237,6 +245,31 @@ public class MainActivity extends Activity {
                         .show();
             }
         }
+
+
+        else if (requestCode == UPLOAD_FILE_REQUEST_CODE) {
+
+            if (resultCode == RESULT_OK) {
+                 Uri  uri  = data.getData();
+                 String pdfPathString = FilePath.getPath(this, uri);
+                launchUploadActivityPDfFile(false,pdfPathString);
+
+            } else if (resultCode == RESULT_CANCELED) {
+
+                // user cancelled recording
+                Toast.makeText(getApplicationContext(),
+                        "User cancelled video recording", Toast.LENGTH_SHORT)
+                        .show();
+
+            } else {
+                // failed to record video
+                Toast.makeText(getApplicationContext(),
+                        "Sorry! Failed to record video", Toast.LENGTH_SHORT)
+                        .show();
+            }
+
+
+        }
     }
 
     private void launchUploadActivity(boolean isImage, Uri fileUri) {
@@ -252,25 +285,24 @@ public class MainActivity extends Activity {
         i.putExtra("isImage", isImage);
         startActivity(i);
     }
-     
-    /**
-     * ------------ Helper Methods ---------------------- 
-     * */
- 
-    /**
-     * Creating file uri to store image/video
-     */
+
+    private void launchUploadActivityPDfFile(boolean isImage,String pdfPathString){
+        Intent i = new Intent(MainActivity.this, UploadActivity.class);
+        i.putExtra("filePath",pdfPathString);
+        i.putExtra("isImage", isImage);
+        startActivity(i);
+    }
+
+
+
     public Uri getOutputMediaFileUri(int type) throws IOException {
         return Uri.fromFile(getOutputMediaFile(type));
     }
  
-    /**
-     * returning image / video
-     */
+
     private static File getOutputMediaFile(int type) {
-        // External sdcard location
+
         File mediaStorageDir = new File(Environment.getExternalStorageDirectory(), Config.IMAGE_DIRECTORY_NAME);
-        // Create the storage directory if it does not exist
         if (!mediaStorageDir.exists()) {
             if (!mediaStorageDir.mkdirs()) {
                 Log.d(TAG, "Oops! Failed create "
@@ -278,7 +310,6 @@ public class MainActivity extends Activity {
                 return null;
             }
         }
-        // Create a media file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss",
                 Locale.getDefault()).format(new Date());
         File mediaFile;
@@ -288,10 +319,13 @@ public class MainActivity extends Activity {
         } else if (type == MEDIA_TYPE_VIDEO) {
             mediaFile = new File(mediaStorageDir.getAbsolutePath() + File.separator
                     + "VID_" + timeStamp + ".mp4");
-        } else {
+        }else if (type == MEDIA_TYPE_FILE) {
+            mediaFile = new File(mediaStorageDir.getAbsolutePath() + File.separator
+                    + "file_" + timeStamp + ".pdf");
+        }
+        else {
             return null;
         }
- 
         return mediaFile;
     }
 
